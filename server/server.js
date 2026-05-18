@@ -163,8 +163,15 @@ async function initDb() {
 
 async function createSession(res, userId) {
   const sid = crypto.randomBytes(32).toString("hex");
-  await pool.query("INSERT INTO sessions (id, user_id, expires_at) VALUES ($1, $2, now() + interval '30 days')", [sid, userId]);
+
+  await pool.query(
+    "INSERT INTO sessions (id, user_id, expires_at) VALUES ($1, $2, now() + interval '30 days')",
+    [sid, userId]
+  );
+
   res.cookie(SESSION_COOKIE, sid, cookieOptions());
+
+  return sid;
 }
 
 async function getUserFromRequest(req) {
@@ -466,8 +473,8 @@ app.post("/api/auth/register", async (req, res) => {
       [email.toLowerCase(), name || email.split("@")[0], hash]
     );
     await seedUserDefaults(rows[0].id);
-    await createSession(res, rows[0].id);
-    res.json({ user: cleanUser(rows[0]) });
+    const token = await createSession(res, rows[0].id);
+    res.json({ user: cleanUser(rows[0]), token });
   } catch (error) {
     res.status(400).json({ error: error.code === "23505" ? "Ese email ya existe." : error.message });
   }
@@ -481,15 +488,20 @@ app.post("/api/auth/login", async (req, res) => {
     if (!user?.password_hash || !(await bcrypt.compare(password || "", user.password_hash))) {
       return res.status(401).json({ error: "Email o contraseña incorrectos." });
     }
-    await createSession(res, user.id);
-    res.json({ user: cleanUser(user) });
+    const token = await createSession(res, user.id);
+    res.json({ user: cleanUser(user), token });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 });
 
 app.post("/api/auth/logout", async (req, res) => {
-  const sid = parseCookies(req)[SESSION_COOKIE];
+  const authHeader = req.headers.authorization || "";
+  const bearerToken = authHeader.startsWith("Bearer ")
+    ? authHeader.slice(7)
+    : null;
+
+  const sid = bearerToken || parseCookies(req)[SESSION_COOKIE];
   if (sid) await pool.query("DELETE FROM sessions WHERE id = $1", [sid]);
   res.clearCookie(SESSION_COOKIE, cookieOptions(0));
   res.json({ ok: true });

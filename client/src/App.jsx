@@ -54,9 +54,22 @@ export default function App() {
   const [bankConnected, setBankConnected] = useState(false);
 
   async function api(path, options = {}) {
-    const res = await fetch(`${API}${path}`, { credentials: "include", headers: { "Content-Type": "application/json", ...(options.headers || {}) }, ...options });
+    const token = localStorage.getItem("velora_token");
+
+    const res = await fetch(`${API}${path}`, {
+      ...options,
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(options.headers || {}),
+      },
+    });
+
     const data = await res.json().catch(() => ({}));
+
     if (!res.ok) throw new Error(data.error || "Error inesperado");
+
     return data;
   }
 
@@ -158,11 +171,22 @@ export default function App() {
 
   async function submitAuth(e) {
     e.preventDefault();
+
     try {
-      const data = await api(`/api/auth/${authMode === "login" ? "login" : "register"}`, { method: "POST", body: JSON.stringify(authForm) });
+      const data = await api(`/api/auth/${authMode === "login" ? "login" : "register"}`, {
+        method: "POST",
+        body: JSON.stringify(authForm),
+      });
+
+      if (data.token) {
+        localStorage.setItem("velora_token", data.token);
+      }
+
       setUser(data.user);
       setStatus(`Hola ${data.user.name}. Tus datos ya se guardan en PostgreSQL.`);
-    } catch (error) { setStatus(error.message); }
+    } catch (error) {
+      setStatus(error.message);
+    }
   }
 
 
@@ -185,7 +209,10 @@ export default function App() {
   }
   async function logout() {
     await api("/api/auth/logout", { method: "POST" });
-    setUser(null); setTransactions([]); setStatus("Sesión cerrada.");
+    localStorage.removeItem("velora_token");
+    setUser(null);
+    setTransactions([]);
+    setStatus("Sesión cerrada.");
   }
 
   async function addTransaction() {
