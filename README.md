@@ -81,7 +81,9 @@ Create `.env` files inside:
 
 ## Screenshots
 
-*Add screenshots here*
+![Dashboard](./docs/dashboard.png)
+![Calendar](./docs/calendar.png)
+![Budgets](./docs/budgets.png)
 
 ---
 
