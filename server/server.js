@@ -9,18 +9,42 @@ import { Pool } from "pg";
 dotenv.config();
 
 const app = express();
+
+app.set("trust proxy", 1);
+
 app.use(express.json());
 
-const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
+const CLIENT_URL = (process.env.CLIENT_URL || "http://localhost:5173").replace(/\/$/, "");
 const PORT = process.env.PORT || 3001;
 const SESSION_COOKIE = "velora_session";
-const isProd = process.env.NODE_ENV === "production";
 
-app.use(cors({ origin: CLIENT_URL, credentials: true }));
+const isProd =
+  process.env.NODE_ENV === "production" ||
+  CLIENT_URL.includes("vercel.app");
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin) return callback(null, true);
+
+      const normalizedOrigin = origin.replace(/\/$/, "");
+
+      if (normalizedOrigin === CLIENT_URL) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("CORS bloqueado"));
+    },
+    credentials: true,
+  })
+);
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_SSL === "true" ? { rejectUnauthorized: false } : false
+  ssl:
+    process.env.DATABASE_SSL === "true"
+      ? { rejectUnauthorized: false }
+      : false,
 });
 
 const isSandbox = (process.env.TRUELAYER_ENV || "sandbox") === "sandbox";
@@ -41,7 +65,7 @@ function cookieOptions(maxAgeDays = 30) {
     sameSite: isProd ? "none" : "lax",
     secure: isProd,
     path: "/",
-    maxAge: maxAgeDays * 24 * 60 * 60 * 1000
+    maxAge: maxAgeDays * 24 * 60 * 60 * 1000,
   };
 }
 
