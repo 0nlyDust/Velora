@@ -87,6 +87,12 @@ Create `.env` files inside:
 
 ---
 
+## Demo Video
+
+[https://user-images.githubusercontent.com/xxxxx/demo.mp4](https://github.com/0nlyDust/Velora/blob/main/docs/demo.mp4)
+
+---
+
 ## Notes
 
 Bank integrations were prototyped using the TrueLayer sandbox environment.
