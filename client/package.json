@@ -1,7 +1,7 @@
 {
   "engines": {
-  "node": "20.x"
-},
+    "node": "20.x"
+  },
   "name": "velora-demo-client",
   "version": "1.0.0",
   "private": true,
@@ -19,7 +19,8 @@
     "recharts": "^3.1.2",
     "lucide-react": "^0.468.0"
   },
-  "devDependencies": {
+  "devDependencies": {},
+  "optionalDependencies": {
     "@rollup/rollup-linux-x64-gnu": "4.60.4"
   }
 }
