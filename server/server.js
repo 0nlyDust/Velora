@@ -28,10 +28,13 @@ app.use(
       if (!origin) return callback(null, true);
 
       const normalizedOrigin = origin.replace(/\/$/, "");
+      const normalizedClientUrl = CLIENT_URL.replace(/\/$/, "");
 
-      if (normalizedOrigin === CLIENT_URL) {
-        return callback(null, true);
-      }
+      const isAllowed =
+        normalizedOrigin === normalizedClientUrl ||
+        normalizedOrigin.endsWith(".vercel.app");
+
+      if (isAllowed) return callback(null, true);
 
       return callback(new Error("CORS bloqueado"));
     },
