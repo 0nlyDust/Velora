@@ -19,5 +19,7 @@
     "recharts": "^3.1.2",
     "lucide-react": "^0.468.0"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "4.60.4"
+  }
 }
