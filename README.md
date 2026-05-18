@@ -1,96 +1,90 @@
 # Velora
 
-App web de finanzas personales con PostgreSQL, login Google/GitHub/email, TrueLayer y calendario mensual.
+Modern personal finance dashboard focused on budgeting, spending analytics and editable transaction categories.
 
-## Ejecutar en local
+## Live Demo
 
-### 1. Configura npm para evitar registry raro
+https://tu-url-vercel.vercel.app
 
-```bash
-npm config set registry https://registry.npmjs.org/
-npm config delete proxy
-npm config delete https-proxy
-npm cache clean --force
-```
+Create any account and load demo data directly inside the app.
 
-### 2. Backend
+---
+
+## Features
+
+* Monthly budgeting
+* Editable spending categories
+* Transaction calendar
+* Spending analytics
+* Demo mode with seeded data
+* PostgreSQL persistence
+* Responsive minimal UI
+
+---
+
+## Stack
+
+* React + Vite
+* Node.js + Express
+* PostgreSQL
+* Render
+* Vercel
+
+---
+
+## Local Development
+
+### Backend
 
 ```bash
 cd server
 npm install
-cp .env.example .env
 npm run dev
 ```
 
-En Windows, crea `server/.env` manualmente copiando `.env.example`.
-
-### 3. Frontend
-
-En otra terminal:
+### Frontend
 
 ```bash
 cd client
 npm install
-cp .env.example .env
 npm run dev
 ```
 
-Abre:
+Frontend runs on:
 
 ```txt
 http://localhost:5173
 ```
 
-## URLs locales importantes
-
-Backend:
+Backend runs on:
 
 ```txt
 http://localhost:3001
 ```
 
-Frontend:
+---
 
-```txt
-http://localhost:5173
-```
+## Environment Variables
 
-Google redirect URI local:
-
-```txt
-http://localhost:3001/api/auth/google/callback
-```
-
-GitHub redirect URI local:
-
-```txt
-http://localhost:3001/api/auth/github/callback
-```
-
-TrueLayer redirect URI local:
-
-```txt
-http://localhost:3001/api/truelayer/callback
-```
-
-## PostgreSQL
-
-Crea una base de datos llamada `velora` y configura:
+Example PostgreSQL connection:
 
 ```env
 DATABASE_URL=postgresql://postgres:TUPASSWORD@localhost:5432/velora
 ```
 
-Las tablas se crean automáticamente al arrancar el server.
+Create `.env` files inside:
 
-## Producción
+* `/server`
+* `/client`
 
-Lee `PRODUCCION.md` antes de conectar bancos reales.
+---
 
-## Cambios de esta versión
+## Screenshots
 
-- Interfaz más minimalista: fondo limpio, cards blancas y menos degradados.
-- Calendario mensual con días clicables.
-- Panel lateral de movimientos diarios para ver ingresos/gastos de cada día.
-- Selector de categoría más grande y claro.
-- Aviso de revisión de categoría más visible.
+*Add screenshots here*
+
+---
+
+## Notes
+
+Bank integrations were prototyped using the TrueLayer sandbox environment.
