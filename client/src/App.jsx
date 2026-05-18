@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Wallet, Building2, Plus, PieChart, Target, RefreshCcw, Sparkles, ShieldCheck, ArrowUpRight, ArrowDownRight, LogOut, Trash2, Heart, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, PieChart, Target, Sparkles, ShieldCheck, ArrowUpRight, ArrowDownRight, LogOut, Trash2, Heart, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { PieChart as RPieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line } from "recharts";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:3001";
@@ -48,10 +48,7 @@ export default function App() {
   const [expandedDate, setExpandedDate] = useState(today());
   const [newTx, setNewTx] = useState({ date: today(), description: "", amount: "", source: "Manual", category: "" });
   const [newCategory, setNewCategory] = useState({ name: "", emoji: "✨", color: "#ec4899" });
-  const [walletAddress, setWalletAddress] = useState("");
-  const [chainId, setChainId] = useState("1");
   const [status, setStatus] = useState("Velora lista para cuidar tu dinero.");
-  const [bankConnected, setBankConnected] = useState(false);
 
   async function api(path, options = {}) {
     const token = localStorage.getItem("velora_token");
@@ -79,15 +76,13 @@ export default function App() {
   }
 
   async function loadAll() {
-    const [tx, cats, b, bank] = await Promise.all([
+    const [tx, cats, b] = await Promise.all([
       api(`/api/transactions?year=${selectedYear}`),
       api("/api/categories"),
-      api(`/api/budgets?month=${selectedMonth}`),
-      api("/api/truelayer/status").catch(() => ({ connected: false }))
+      api(`/api/budgets?month=${selectedMonth}`)
     ]);
     setTransactions(tx.results || []);
     setCategories(cats.results || []);
-    setBankConnected(Boolean(bank.connected));
     const loaded = { ...defaultBudgetTemplate };
     (b.results || []).forEach(row => { loaded[row.category] = Number(row.amount); });
     setBudgets(loaded);
@@ -96,9 +91,6 @@ export default function App() {
   useEffect(() => {
     api("/api/auth/me").then(d => setUser(d.user)).catch(() => setUser(null));
     const params = new URLSearchParams(window.location.search);
-    if (params.get("bank") === "connected") setStatus("Banco conectado. Ya puedes importar movimientos.");
-    if (params.get("bank") === "error") setStatus("No se pudo conectar el banco. Revisa claves y redirect URI.");
-    if (params.get("auth")) setStatus("No se pudo completar el login social. Revisa las credenciales OAuth.");
   }, []);
 
   useEffect(() => { if (user) loadAll().catch(e => setStatus(e.message)); }, [user, selectedMonth, selectedYear]);
@@ -188,7 +180,7 @@ export default function App() {
       }
 
       setUser(data.user);
-      setStatus(`Hola ${data.user.name}. Tus datos ya se guardan en PostgreSQL.`);
+      setStatus(`Hola ${data.user.name}. Todo listo para organizar tus gastos.`);
     } catch (error) {
       setStatus(error.message);
     }
@@ -226,7 +218,7 @@ export default function App() {
     const tx = await api("/api/transactions", { method: "POST", body: JSON.stringify({ ...newTx, amount, category: newTx.category || undefined }) });
     setTransactions(prev => [{ ...tx, amount: Number(tx.amount) }, ...prev]);
     setNewTx({ ...newTx, description: "", amount: "" });
-    setStatus("Movimiento guardado en PostgreSQL.");
+    setStatus("Movimiento guardado.");
   }
 
   async function deleteTransaction(id) {
@@ -241,11 +233,6 @@ export default function App() {
     setStatus(`Aprendido: movimientos parecidos se clasificarán como ${category}.`);
   }
 
-  async function dedupeTransactions() {
-    const data = await api("/api/transactions/dedupe", { method: "POST", body: JSON.stringify({}) });
-    await loadAll();
-    setStatus(`Duplicados eliminados: ${data.deleted}.`);
-  }
 
   async function updateBudget(category, amount) {
     setBudgets(prev => ({ ...prev, [category]: amount }));
@@ -260,62 +247,31 @@ export default function App() {
     setNewCategory({ name: "", emoji: "✨", color: "#ec4899" });
   }
 
-  async function connectTrueLayer() {
-    const data = await api("/api/truelayer/auth-url");
-    window.location.href = data.url;
-  }
 
-  async function importBank() {
-    setStatus("Importando movimientos bancarios con categorías inteligentes...");
-    const data = await api("/api/truelayer/import", { method: "POST", body: JSON.stringify({ from: `${selectedYear}-01-01`, to: today() }) });
-    await loadAll();
-    setStatus(`TrueLayer sincronizado: ${data.imported || data.results.length} movimientos revisados; lista limpia sin duplicados.`);
-    setBankConnected(true);
-  }
 
-  async function reclassifyTransactions() {
-    setStatus("Recategorizando con reglas inteligentes e historial...");
-    const data = await api("/api/transactions/reclassify", { method: "POST", body: JSON.stringify({}) });
-    await loadAll();
-    setStatus(`Recategorización completada: ${data.updated} movimientos actualizados.`);
-  }
 
-  async function dedupeTransactions() {
-    setStatus("Limpiando movimientos duplicados...");
-    const data = await api("/api/transactions/dedupe", { method: "POST", body: JSON.stringify({}) });
-    setTransactions(data.results || []);
-    setStatus("Duplicados eliminados y lista actualizada.");
-  }
 
-  async function importWallet() {
-    if (!walletAddress) return setStatus("Introduce una dirección pública de wallet.");
-    const data = await api("/api/etherscan/import", { method: "POST", body: JSON.stringify({ chainId, address: walletAddress }) });
-    setTransactions(prev => [...data.results.map(t => ({ ...t, amount: Number(t.amount) })), ...prev]);
-    setStatus(`Importadas ${data.results.length} transacciones de wallet.`);
-  }
 
   if (!user) {
-    return <div className="app auth-app"><section className="auth-card"><div className="brand"><div className="brand-icon"><Heart size={26} /></div><div><p className="pill pink"><Sparkles size={15} /> PostgreSQL + OAuth</p><h1>Velora</h1><p>Tu dinero, tus metas y tus presupuestos en un espacio bonito, privado y persistente.</p></div></div><div className="social-grid"><button onClick={() => window.location.href = `${API}/api/auth/google`}>Continuar con Google</button></div><div className="divider"><span>o con email</span></div><form className="auth-form" onSubmit={submitAuth}>{authMode === "register" && <input placeholder="Nombre" value={authForm.name} onChange={e => setAuthForm({ ...authForm, name: e.target.value })} />}<input type="email" placeholder="Email" value={authForm.email} onChange={e => setAuthForm({ ...authForm, email: e.target.value })} /><input type="password" placeholder="Contraseña" value={authForm.password} onChange={e => setAuthForm({ ...authForm, password: e.target.value })} /><button className="primary">{authMode === "login" ? "Entrar" : "Crear cuenta"}</button></form><button className="link-button" onClick={() => setAuthMode(authMode === "login" ? "register" : "login")}>{authMode === "login" ? "Crear cuenta nueva" : "Ya tengo cuenta"}</button><p className="auth-status"><ShieldCheck size={16} /> {status}</p></section></div>;
+    return <div className="app auth-app"><section className="auth-card"><div className="brand"><div className="brand-icon"><Heart size={26} /></div><div><p className="pill pink"><Sparkles size={15} /> Demo portfolio</p><h1>Velora</h1><p>Una forma bonita y clara de entender tus gastos, presupuestos y hábitos mensuales.</p></div></div><form className="auth-form" onSubmit={submitAuth}>{authMode === "register" && <input placeholder="Nombre" value={authForm.name} onChange={e => setAuthForm({ ...authForm, name: e.target.value })} />}<input type="email" placeholder="Email" value={authForm.email} onChange={e => setAuthForm({ ...authForm, email: e.target.value })} /><input type="password" placeholder="Contraseña" value={authForm.password} onChange={e => setAuthForm({ ...authForm, password: e.target.value })} /><button className="primary">{authMode === "login" ? "Entrar" : "Crear cuenta"}</button></form><button className="link-button" onClick={() => setAuthMode(authMode === "login" ? "register" : "login")}>{authMode === "login" ? "Crear cuenta nueva" : "Ya tengo cuenta"}</button><p className="auth-status"><ShieldCheck size={16} /> {status}</p></section></div>;
   }
 
-  return <div className="app"><main className="container"><section className="hero"><div className="hero-glow one" /><div className="hero-glow two" /><div className="hero-content"><div><div className="pill"><Sparkles size={16} /> Finanzas suaves, claras y persistentes</div><h1>Velora</h1><p>Login con Google, GitHub o email. Tus transacciones, categorías y presupuestos se guardan en PostgreSQL.</p></div><div className="balance-card"><p>Balance del mes</p><strong className={monthSummary.balance >= 0 ? "positive" : "negative"}>{eur(monthSummary.balance)}</strong><div className="mini-grid"><span>Ahorro <b>{monthSummary.savingsRate}%</b></span><span>Año <b>{eur(yearBalance)}</b></span></div></div></div></section>
+  return <div className="app"><main className="container"><section className="hero"><div className="hero-glow one" /><div className="hero-glow two" /><div className="hero-content"><div><div className="pill"><Sparkles size={16} /> Finanzas suaves, claras y persistentes</div><h1>Velora</h1><p>Visualiza tus gastos, ajusta presupuestos y explora tu año financiero con datos demo realistas.</p></div><div className="balance-card"><p>Balance del mes</p><strong className={monthSummary.balance >= 0 ? "positive" : "negative"}>{eur(monthSummary.balance)}</strong><div className="mini-grid"><span>Ahorro <b>{monthSummary.savingsRate}%</b></span><span>Año <b>{eur(yearBalance)}</b></span></div></div></div></section>
 
     <div className="topbar"><div className="safety"><ShieldCheck size={17} /> {status}</div><div className="filters"><span className="hello">{user.avatarUrl && <img src={user.avatarUrl} />} {user.name}</span><select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}>{[0,1,2,3,4,5].map(i => { const d = new Date(); d.setMonth(d.getMonth() - i); const m = d.toISOString().slice(0,7); return <option key={m}>{m}</option>; })}</select><select value={selectedYear} onChange={e => setSelectedYear(e.target.value)}><option>{currentYear()}</option><option>{Number(currentYear()) - 1}</option></select><button className="secondary demo-button" onClick={seedDemoData}><Sparkles size={16} /> Cargar demo</button><button className="secondary" onClick={logout}><LogOut size={16} /> Salir</button></div></div>
 
     <section className="metrics"><MetricCard title="Ingresos" value={eur(monthSummary.income)} icon={ArrowUpRight} tone="positive" helper={`Mes ${selectedMonth}`} /><MetricCard title="Gastos" value={eur(monthSummary.expenses)} icon={ArrowDownRight} tone="negative" helper={`${Math.round((monthSummary.expenses / Math.max(totalBudget, 1)) * 100)}% del presupuesto`} /><MetricCard title="Presupuesto" value={eur(totalBudget)} icon={Target} helper="Límite mensual total" /><MetricCard title="Movimientos" value={monthTransactions.length} icon={PieChart} helper="Transacciones del mes" /></section>
 
-    <nav className="tabs">{[["dashboard","Dashboard"],["transactions","Movimientos"],["calendar","Calendario"],["budgets","Presupuestos"],["categories","Categorías"],["connectors","Conexiones"]].map(([key, label]) => <button key={key} className={tab === key ? "active" : ""} onClick={() => setTab(key)}>{label}</button>)}</nav>
+    <nav className="tabs">{[["dashboard","Dashboard"],["transactions","Movimientos"],["calendar","Calendario"],["budgets","Presupuestos"],["categories","Categorías"]].map(([key, label]) => <button key={key} className={tab === key ? "active" : ""} onClick={() => setTab(key)}>{label}</button>)}</nav>
 
     {tab === "dashboard" && <section className="grid two"><div className="panel"><h2>Gastos por categoría</h2><div className="chart"><ResponsiveContainer><RPieChart><Pie data={pieCategoryData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={105} label={({ name, percent }) => percent > 0.05 ? `${name} ${(percent * 100).toFixed(0)}%` : ""}>{pieCategoryData.map((_, i) => <Cell key={i} fill={chartColors[i % chartColors.length]} />)}</Pie><Tooltip formatter={v => eur(v)} /></RPieChart></ResponsiveContainer></div></div><div className="panel"><h2>Ingresos vs gastos</h2><div className="chart"><ResponsiveContainer><BarChart data={monthlyYearData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="month" /><YAxis /><Tooltip formatter={v => eur(v)} /><Bar dataKey="ingresos" fill="#10b981" radius={[10,10,0,0]} /><Bar dataKey="gastos" fill="#ec4899" radius={[10,10,0,0]} /></BarChart></ResponsiveContainer></div></div><div className="panel wide"><h2>Balance mensual</h2><div className="chart"><ResponsiveContainer><LineChart data={monthlyYearData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="month" /><YAxis /><Tooltip formatter={v => eur(v)} /><Line type="monotone" dataKey="balance" stroke="#a855f7" strokeWidth={4} dot={{ r: 5 }} /></LineChart></ResponsiveContainer></div></div></section>}
 
     {tab === "calendar" && <section className="calendar-layout"><div className="panel calendar-panel"><div className="calendar-head"><button className="secondary" onClick={() => { const m = addMonths(selectedMonth, -1); setSelectedMonth(m); setExpandedDate(`${m}-01`); }}><ChevronLeft size={16} /> Mes anterior</button><div><h2><CalendarDays size={21} /> Calendario mensual</h2><p>{monthName(selectedMonth)}</p></div><button className="secondary" onClick={() => { const m = addMonths(selectedMonth, 1); setSelectedMonth(m); setExpandedDate(`${m}-01`); }}>Mes siguiente <ChevronRight size={16} /></button></div><div className="calendar-weekdays">{["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"].map(d => <b key={d}>{d}</b>)}</div><div className="month-calendar">{calendarDays.map((cell, i) => cell ? <button type="button" className={`calendar-day ${cell.date === today() ? "today" : ""} ${cell.date === expandedDate ? "selected" : ""}`} key={cell.date} onClick={() => setExpandedDate(cell.date)}><div className="day-top"><strong>{cell.day}</strong><span>{cell.txs.length ? `${cell.txs.length} mov.` : ""}</span></div><div className="day-summary">{cell.income > 0 && <small className="positive">+{eur(cell.income)}</small>}{cell.expense > 0 && <small className="negative">-{eur(cell.expense)}</small>}</div><div className="day-net"><b className={cell.net >= 0 ? "positive" : "negative"}>{cell.txs.length ? eur(cell.net) : ""}</b></div></button> : <div className="calendar-day empty" key={`empty-${i}`} />)}</div></div><aside className="panel day-detail"><h2>{expandedDate ? `Movimientos del ${expandedDate}` : "Elige un día"}</h2>{selectedDayTransactions.length ? <div className="daily-list">{selectedDayTransactions.map(t => { const meta = categoryMeta(categories, t.category); return <div className="daily-item" key={t.id}><div><strong>{t.description}</strong><span className="badge" style={{ background: hexToRgba(meta.color, 0.12), color: meta.color, borderColor: hexToRgba(meta.color, 0.35) }}>{meta.emoji} {t.category}</span></div><b className={t.amount >= 0 ? "positive" : "negative"}>{eur(t.amount)}</b></div>; })}</div> : <p className="empty-state">No hay movimientos este día.</p>}</aside></section>}
 
-    {tab === "transactions" && <section className="stack"><div className="panel form-grid"><input type="date" value={newTx.date} onChange={e => setNewTx({ ...newTx, date: e.target.value })} /><input placeholder="Descripción" value={newTx.description} onChange={e => setNewTx({ ...newTx, description: e.target.value })} /><input placeholder="Importe, ej. -25.50" value={newTx.amount} onChange={e => setNewTx({ ...newTx, amount: e.target.value })} /><select value={newTx.category} onChange={e => setNewTx({ ...newTx, category: e.target.value })}><option value="">Auto inteligente</option>{categories.map(c => <option key={c.id}>{c.name}</option>)}</select><select value={newTx.source} onChange={e => setNewTx({ ...newTx, source: e.target.value })}><option>Manual</option><option>Banco</option><option>Wallet</option><option>Efectivo</option></select><button className="primary" onClick={addTransaction}><Plus size={17} /> Añadir</button></div><div className="insight-strip"><div><Sparkles size={17} /><b>Clasificación inteligente</b><span>{insights.otrosPct}% del gasto está en Otros.</span></div>{insights.top && <div><PieChart size={17} /><b>Top gasto</b><span>{insights.top.name}: {eur(insights.top.value)}</span></div>}{insights.overs[0] && <div><Target size={17} /><b>Presupuesto alerta</b><span>{insights.overs[0].category} excedido.</span></div>}<button className="secondary" onClick={reclassifyTransactions}><Sparkles size={16} /> Recategorizar</button><button className="secondary" onClick={dedupeTransactions}><RefreshCcw size={16} /> Quitar duplicados</button></div><div className="panel"><h2>Movimientos de {selectedMonth}</h2><div className="table-wrap"><table><thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Origen</th><th className="right">Importe</th><th></th></tr></thead><tbody>{monthTransactions.map(t => { const meta = categoryMeta(categories, t.category); return <tr key={t.id}><td>{String(t.date).slice(0,10)}</td><td><b>{t.description}</b></td><td><div className="category-picker"><label className="category-select-wrap"><span>{Number(t.category_confidence || 0) < 0.7 ? "Revisar categoría" : "Categoría"}</span><select value={t.category} onChange={e => updateTransactionCategory(t.id, e.target.value)}>{categories.map(c => <option key={c.id}>{c.name}</option>)}</select></label>{Number(t.category_confidence || 0) < 0.7 && <small className="low-confidence">Necesita revisión</small>}</div></td><td>{t.source}</td><td className={`right ${t.amount >= 0 ? "positive" : "negative"}`}><b>{eur(t.amount)}</b></td><td><button className="ghost" onClick={() => deleteTransaction(t.id)}><Trash2 size={15} /></button></td></tr> })}</tbody></table></div></div></section>}
+    {tab === "transactions" && <section className="stack"><div className="panel form-grid"><input type="date" value={newTx.date} onChange={e => setNewTx({ ...newTx, date: e.target.value })} /><input placeholder="Descripción" value={newTx.description} onChange={e => setNewTx({ ...newTx, description: e.target.value })} /><input placeholder="Importe, ej. -25.50" value={newTx.amount} onChange={e => setNewTx({ ...newTx, amount: e.target.value })} /><select value={newTx.category} onChange={e => setNewTx({ ...newTx, category: e.target.value })}><option value="">Auto inteligente</option>{categories.map(c => <option key={c.id}>{c.name}</option>)}</select><select value={newTx.source} onChange={e => setNewTx({ ...newTx, source: e.target.value })}><option>Manual</option><option>Efectivo</option></select><button className="primary" onClick={addTransaction}><Plus size={17} /> Añadir</button></div><div className="insight-strip"><div><Sparkles size={17} /><b>Clasificación inteligente</b><span>{insights.otrosPct}% del gasto está en Otros.</span></div>{insights.top && <div><PieChart size={17} /><b>Top gasto</b><span>{insights.top.name}: {eur(insights.top.value)}</span></div>}{insights.overs[0] && <div><Target size={17} /><b>Presupuesto alerta</b><span>{insights.overs[0].category} excedido.</span></div>}</div><div className="panel"><h2>Movimientos de {selectedMonth}</h2><div className="table-wrap"><table><thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Origen</th><th className="right">Importe</th><th></th></tr></thead><tbody>{monthTransactions.map(t => { const meta = categoryMeta(categories, t.category); return <tr key={t.id}><td>{String(t.date).slice(0,10)}</td><td><b>{t.description}</b></td><td><div className="category-picker"><label className="category-select-wrap"><span>{Number(t.category_confidence || 0) < 0.7 ? "Revisar categoría" : "Categoría"}</span><select value={t.category} onChange={e => updateTransactionCategory(t.id, e.target.value)}>{categories.map(c => <option key={c.id}>{c.name}</option>)}</select></label>{Number(t.category_confidence || 0) < 0.7 && <small className="low-confidence">Necesita revisión</small>}</div></td><td>{t.source}</td><td className={`right ${t.amount >= 0 ? "positive" : "negative"}`}><b>{eur(t.amount)}</b></td><td><button className="ghost" onClick={() => deleteTransaction(t.id)}><Trash2 size={15} /></button></td></tr> })}</tbody></table></div></div></section>}
 
     {tab === "budgets" && <section className="panel"><h2><Target size={20} /> Presupuestos de {selectedMonth}</h2><div className="budget-grid">{budgetData.map(b => <div key={b.category} className="budget-card"><div className="budget-top"><b>{categories.find(c => c.name === b.category)?.emoji} {b.category}</b><span>{eur(b.spent)} / {eur(b.limit)}</span></div><div className="bar"><div className={b.spent > b.limit ? "over" : "ok"} style={{ width: `${b.pct}%` }} /></div><div className="budget-edit"><input type="number" value={b.limit} onChange={e => updateBudget(b.category, e.target.value)} /><span className={b.remaining < 0 ? "negative" : "positive"}>{b.remaining < 0 ? "Exceso" : "Queda"}: {eur(Math.abs(b.remaining))}</span></div></div>)}</div></section>}
 
     {tab === "categories" && <section className="panel"><h2>Categorías bonitas</h2><div className="category-form"><input placeholder="Nombre" value={newCategory.name} onChange={e => setNewCategory({ ...newCategory, name: e.target.value })} /><input placeholder="Emoji" value={newCategory.emoji} onChange={e => setNewCategory({ ...newCategory, emoji: e.target.value })} /><input type="color" value={newCategory.color} onChange={e => setNewCategory({ ...newCategory, color: e.target.value })} /><button className="primary" onClick={addCategory}><Plus size={17} /> Añadir categoría</button></div><div className="category-grid">{categories.map(c => <div className="category-card" key={c.id} style={{ borderColor: c.color }}><span>{c.emoji}</span><b>{c.name}</b></div>)}</div></section>}
-
-    {tab === "connectors" && <section className="grid two"><div className="panel connector"><Building2 size={28} /><h2>TrueLayer Open Banking</h2><p>Conecta tu banco con OAuth. Tus credenciales bancarias se introducen en el banco/TrueLayer, no en Velora.</p><div className="status">Estado: {bankConnected ? "Conectado" : "No conectado"}</div><button className="primary" onClick={connectTrueLayer}>Conectar banco</button><button className="secondary" onClick={importBank}><RefreshCcw size={17} /> Importar transacciones</button></div><div className="panel connector"><Wallet size={28} /><h2>Etherscan Wallet</h2><p>Introduce una dirección pública. Nunca introduzcas seed phrase ni clave privada.</p><select value={chainId} onChange={e => setChainId(e.target.value)}><option value="1">Ethereum Mainnet</option><option value="8453">Base</option><option value="137">Polygon</option><option value="42161">Arbitrum</option><option value="56">BNB Chain</option></select><input placeholder="0x..." value={walletAddress} onChange={e => setWalletAddress(e.target.value)} /><button className="primary" onClick={importWallet}><RefreshCcw size={17} /> Importar wallet</button></div></section>}
   </main></div>;
 }
