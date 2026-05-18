@@ -2,6 +2,10 @@
 
 Modern personal finance dashboard focused on budgeting, spending analytics and editable transaction categories.
 
+# Velora
+
+![Velora Demo](./docs/demogif.gif)
+
 ## Live Demo
 
 [https://tu-url-vercel.vercel.app](https://velora-pink-delta.vercel.app/)
