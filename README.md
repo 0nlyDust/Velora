@@ -1,6 +1,6 @@
 # Velora
 
-Modern personal finance dashboard focused on budgeting, spending analytics and editable transaction categories.
+Modern personal finance dashboard focused on budgeting, spending analytics and editable transaction categories. 
 
 # Velora
 
