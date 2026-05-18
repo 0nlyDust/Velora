@@ -175,12 +175,20 @@ async function createSession(res, userId) {
 }
 
 async function getUserFromRequest(req) {
-  const sid = parseCookies(req)[SESSION_COOKIE];
+  const authHeader = req.headers.authorization || "";
+  const bearerToken = authHeader.startsWith("Bearer ")
+    ? authHeader.slice(7)
+    : null;
+
+  const sid = bearerToken || parseCookies(req)[SESSION_COOKIE];
+
   if (!sid) return null;
+
   const { rows } = await pool.query(
     `SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.id = $1 AND s.expires_at > now()`,
     [sid]
   );
+
   return rows[0] || null;
 }
 

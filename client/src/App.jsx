@@ -68,7 +68,12 @@ export default function App() {
 
     const data = await res.json().catch(() => ({}));
 
-    if (!res.ok) throw new Error(data.error || "Error inesperado");
+    if (!res.ok) {
+      if (res.status === 401) {
+        localStorage.removeItem("velora_token");
+      }
+      throw new Error(data.error || "Error inesperado");
+    }
 
     return data;
   }
