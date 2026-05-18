@@ -169,14 +169,20 @@ export default function App() {
   async function seedDemoData() {
     try {
       setStatus("Cargando datos demo…");
-      const data = await api("/api/demo/seed", { method: "POST" });
+
+      const data = await api("/api/demo/seed", {
+        method: "POST",
+      });
+
       await loadAll();
-      setStatus(`Demo cargada: ${data.transactions || 0} movimientos y presupuestos editables.`);
+
+      setStatus(
+        `Demo cargada: ${data.transactions || 0} movimientos y presupuestos editables.`
+      );
     } catch (error) {
       setStatus(error.message);
     }
   }
-
   async function logout() {
     await api("/api/auth/logout", { method: "POST" });
     setUser(null); setTransactions([]); setStatus("Sesión cerrada.");
